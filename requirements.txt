@@ -1,0 +1,7 @@
+opencv-python-headless
+uiautomator2
+uiautodev
+rapidocr_onnxruntime
+easyocr
+paddlepaddle
+paddleocr
