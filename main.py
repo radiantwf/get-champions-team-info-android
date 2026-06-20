@@ -1,11 +1,12 @@
 from src.teamid import process_batch
 
 RENTAL_CODES = [
-    "BMYR5TU6TP",
+"0NJGER6633",
+"2CA98TSLCU",
 ]
 POKEPASTE_RETRY_INTERVAL_SECONDS = 3
-# FORCE_UPDATE_MODELS = False
-FORCE_UPDATE_MODELS = True
+FORCE_UPDATE_MODELS = False
+# FORCE_UPDATE_MODELS = True
 
 
 def main():

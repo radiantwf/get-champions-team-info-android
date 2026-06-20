@@ -280,7 +280,6 @@ class Pokemon:
             (753, 144, 36, 28),  # spd
             (753, 195, 36, 28),  # spe
         ]
-        modify_region = (162, 151, 12, 14)
         poke_output_dir = Path(output_dir) / f"poke{i}"
         if save_images:
             os.makedirs(poke_output_dir, exist_ok=True)
@@ -290,7 +289,6 @@ class Pokemon:
             cv2.imwrite(str(poke_output_dir / "stat_spa.png"), image[regions[3][1]:regions[3][1] + regions[3][3], regions[3][0]:regions[3][0] + regions[3][2]])
             cv2.imwrite(str(poke_output_dir / "stat_spd.png"), image[regions[4][1]:regions[4][1] + regions[4][3], regions[4][0]:regions[4][0] + regions[4][2]])
             cv2.imwrite(str(poke_output_dir / "stat_spe.png"), image[regions[5][1]:regions[5][1] + regions[5][3], regions[5][0]:regions[5][0] + regions[5][2]])
-            cv2.imwrite(str(poke_output_dir / "stat_atk_modify.png"), image[modify_region[1]:modify_region[1] + modify_region[3], modify_region[0]:modify_region[0] + modify_region[2]])
 
         stat_regions = regions
         results = [

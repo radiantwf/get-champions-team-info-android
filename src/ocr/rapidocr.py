@@ -195,6 +195,30 @@ class RapidOCR:
             return best_term
         return text
 
+    @classmethod
+    def _should_prefer_text(cls, text, score, best, field_name=None):
+        rank = score + min(len(text), 8) * 0.03
+        best_text = str(best["text"] or "")
+        best_score = float(best["score"] or 0.0)
+        best_rank = best_score + min(len(best_text), 8) * 0.03
+        if rank > best_rank:
+            return True
+
+        tag = cls._field_to_dict_tag(field_name)
+        if tag != DictTag.MOVE or not best_text:
+            return False
+
+        normalized = cls._normalize_lookup_text(text)
+        normalized_best = cls._normalize_lookup_text(best_text)
+        if (
+            len(normalized) > len(normalized_best)
+            and normalized.startswith(normalized_best)
+            and score >= best_score - 0.12
+        ):
+            return True
+
+        return False
+
     @staticmethod
     def _flatten_horizontal_stripes(gray):
         width = gray.shape[1]
@@ -285,8 +309,8 @@ class RapidOCR:
 
         return candidates
 
-    @staticmethod
-    def _pick_best_text(results, field_name=None):
+    @classmethod
+    def _pick_best_text(cls, results, field_name=None):
         best = {"text": None, "score": 0.0, "raw_text": None}
         for result in results:
             if not result:
@@ -303,9 +327,7 @@ class RapidOCR:
                     score = float(item[2])
                 except (TypeError, ValueError):
                     score = 0.0
-                rank = score + min(len(text), 8) * 0.03
-                best_rank = best["score"] + min(len(str(best["text"] or "")), 8) * 0.03
-                if rank > best_rank:
+                if cls._should_prefer_text(text, score, best, field_name=field_name):
                     best = {"text": text, "score": score, "raw_text": raw_text}
         return best
 

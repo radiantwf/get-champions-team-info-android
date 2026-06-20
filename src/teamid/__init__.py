@@ -1,6 +1,7 @@
 import shutil
 import subprocess
 import sys
+import re
 import threading
 import time
 import urllib.parse
@@ -153,20 +154,118 @@ def _append_batch_log(log_path: Path, lock: threading.Lock, rental_code: str, te
             file.write("\n")
 
 
-def _append_future_result(log_path: Path, lock: threading.Lock, rental_code: str, future):
+def _resolve_future_result(rental_code: str, future):
     try:
         team, pokepaste_url = future.result()
-        _append_batch_log(log_path, lock, rental_code, team, pokepaste_url)
-        print(f"租借码: {rental_code}")
-        print(f"Pokepaste URL: {pokepaste_url}")
+        return team, pokepaste_url, None
     except Exception as e:
         error = f"租借码 {rental_code} 后台处理失败: {e}"
-        _append_batch_log(log_path, lock, rental_code, None, None, error=error)
+        return None, None, error
+
+
+def _write_batch_result(log_path: Path, log_lock: threading.Lock, rental_code: str, result):
+    team, pokepaste_url, error = result
+    _append_batch_log(log_path, log_lock, rental_code, team, pokepaste_url, error=error)
+    if error:
         print(error)
+    else:
+        print(f"租借码: {rental_code}")
+        print(f"Pokepaste URL: {pokepaste_url}")
+
+
+def _store_ordered_future_result(
+    index: int,
+    rental_code: str,
+    future,
+    condition: threading.Condition,
+    pending_results: dict,
+):
+    result = _resolve_future_result(rental_code, future)
+    with condition:
+        pending_results[index] = result
+        condition.notify_all()
+
+
+def _write_ordered_results(
+    codes,
+    log_path: Path,
+    log_lock: threading.Lock,
+    condition: threading.Condition,
+    pending_results: dict,
+    state: dict,
+):
+    while True:
+        with condition:
+            while (
+                state["next_output"] not in pending_results
+                and not (
+                    state["capture_done"]
+                    and state["next_output"] >= state["submitted_count"]
+                )
+            ):
+                condition.wait()
+
+            if (
+                state["capture_done"]
+                and state["next_output"] >= state["submitted_count"]
+                and state["next_output"] not in pending_results
+            ):
+                return
+
+            index = state["next_output"]
+            result = pending_results.pop(index)
+            state["next_output"] += 1
+            condition.notify_all()
+
+        _write_batch_result(log_path, log_lock, codes[index], result)
+
+
+def _device_shell_output(d, cmd):
+    result = d.shell(cmd)
+    if result.exit_code != 0:
+        raise RuntimeError(f"手机 shell 命令执行失败: {cmd}, exit_code={result.exit_code}")
+    return result.output or ""
+
+
+def _is_device_unlocked(d):
+    trust_output = _device_shell_output(d, ["dumpsys", "trust"])
+    trust_match = re.search(r"\bdeviceLocked\s*=\s*(true|false)\b", trust_output, re.IGNORECASE)
+    if trust_match:
+        return trust_match.group(1).lower() == "false"
+
+    window_output = _device_shell_output(d, ["dumpsys", "window"])
+    lockscreen_signals = [
+        r"\bmShowingLockscreen\s*=\s*true\b",
+        r"\bmDreamingLockscreen\s*=\s*true\b",
+        r"\bisStatusBarKeyguard\s*=\s*true\b",
+        r"\bmInputRestricted\s*=\s*true\b",
+    ]
+    if any(re.search(pattern, window_output, re.IGNORECASE) for pattern in lockscreen_signals):
+        return False
+
+    unlocked_signals = [
+        r"\bmShowingLockscreen\s*=\s*false\b",
+        r"\bmDreamingLockscreen\s*=\s*false\b",
+        r"\bisStatusBarKeyguard\s*=\s*false\b",
+    ]
+    if any(re.search(pattern, window_output, re.IGNORECASE) for pattern in unlocked_signals):
+        return True
+
+    screen_on = getattr(d, "info", {}).get("screenOn")
+    if screen_on is False:
+        return False
+
+    raise RuntimeError("无法判断手机是否已解锁，请手动解锁手机后重试")
+
+
+def _require_device_unlocked(d):
+    if not _is_device_unlocked(d):
+        raise RuntimeError("手机未解锁，请先解锁手机后重新运行")
 
 
 def _start_device_once():
     d = u2.connect()
+    _require_device_unlocked(d)
     d.app_start("jp.pokemon.pokemonchampions")
     time.sleep(2)
     return d
@@ -253,11 +352,29 @@ def process_batch(
     log_path = _new_log_path(codes)
     log_path.write_text("", encoding="utf-8")
     log_lock = threading.Lock()
-    futures = []
+    ordered_condition = threading.Condition()
+    pending_results = {}
+    ordered_state = {
+        "next_output": 0,
+        "submitted_count": 0,
+        "capture_done": False,
+    }
     save_images = len(codes) == 1
 
     d = _start_device_once()
     executor = ThreadPoolExecutor(max_workers=MAX_ASYNC_WORKERS)
+    writer_thread = threading.Thread(
+        target=_write_ordered_results,
+        args=(
+            codes,
+            log_path,
+            log_lock,
+            ordered_condition,
+            pending_results,
+            ordered_state,
+        ),
+    )
+    writer_thread.start()
     try:
         for index, rental_code in enumerate(codes):
             print(f"开始读取租借码: {rental_code}")
@@ -273,27 +390,26 @@ def process_batch(
                 output_dir,
                 save_images,
             )
+            with ordered_condition:
+                ordered_state["submitted_count"] = index + 1
+                ordered_condition.notify_all()
             future.add_done_callback(
-                lambda completed_future, code=rental_code: _append_future_result(
-                    log_path,
-                    log_lock,
+                lambda completed_future, task_index=index, code=rental_code: _store_ordered_future_result(
+                    task_index,
                     code,
                     completed_future,
+                    ordered_condition,
+                    pending_results,
                 )
             )
-            futures.append((rental_code, future))
             print(f"已提交后台处理: {rental_code}")
     finally:
         d.screen_off()
-
-    try:
-        for _, future in futures:
-            try:
-                future.result()
-            except Exception:
-                pass
-    finally:
+        with ordered_condition:
+            ordered_state["capture_done"] = True
+            ordered_condition.notify_all()
         executor.shutdown(wait=True)
+        writer_thread.join()
 
     print(f"批量日志文件: {log_path}")
     return log_path
