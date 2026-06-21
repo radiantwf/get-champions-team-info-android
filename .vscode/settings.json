@@ -7,7 +7,7 @@
     "python.analysis.extraPaths": [
         "",
         "/Users/wangfeng/.vscode/extensions/joedevivo.vscode-circuitpython-0.2.0-darwin-arm64/stubs",
-        "/Users/wangfeng/Library/Application Support/Code/User/globalStorage/joedevivo.vscode-circuitpython/bundle/20260619/adafruit-circuitpython-bundle-py-20260619/lib"
+        "/Users/wangfeng/Library/Application Support/Code/User/globalStorage/joedevivo.vscode-circuitpython/bundle/20260620/adafruit-circuitpython-bundle-py-20260620/lib"
     ],
     "circuitpython.board.version": null,
     "cSpell.words": [
