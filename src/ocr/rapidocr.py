@@ -3,7 +3,7 @@ import numpy as np
 from difflib import SequenceMatcher
 from pathlib import Path
 from rapidocr_onnxruntime import RapidOCR as RapidOCREngine
-from src.ocr.dict.dict import Dict, DictTag
+from src.dict.dict import Dict, DictTag
 from src.ocr.fix.chinese import fix_error_text
 
 
@@ -156,6 +156,12 @@ class RapidOCR:
         return list(reverse_dict.keys())
 
     @classmethod
+    def _is_exact_dict_text(cls, text, tag):
+        if not tag:
+            return False
+        return cls._normalize_lookup_text(text) in cls._dict_terms(tag)
+
+    @classmethod
     def _correct_text_by_dict(cls, text, field_name):
         tag = cls._field_to_dict_tag(field_name)
         normalized = cls._normalize_lookup_text(text)
@@ -197,14 +203,22 @@ class RapidOCR:
 
     @classmethod
     def _should_prefer_text(cls, text, score, best, field_name=None):
-        rank = score + min(len(text), 8) * 0.03
+        tag = cls._field_to_dict_tag(field_name)
+        text_in_dict = cls._is_exact_dict_text(text, tag)
         best_text = str(best["text"] or "")
+        best_in_dict = cls._is_exact_dict_text(best_text, tag)
         best_score = float(best["score"] or 0.0)
+
+        if text_in_dict and not best_in_dict:
+            return True
+        if best_in_dict and not text_in_dict:
+            return False
+
+        rank = score + min(len(text), 8) * 0.03
         best_rank = best_score + min(len(best_text), 8) * 0.03
         if rank > best_rank:
             return True
 
-        tag = cls._field_to_dict_tag(field_name)
         if tag != DictTag.MOVE or not best_text:
             return False
 
@@ -279,6 +293,16 @@ class RapidOCR:
         blurred = cv2.GaussianBlur(enhanced_bgr, (0, 0), sigmaX=0.8)
         enhanced_bgr = cv2.addWeighted(enhanced_bgr, 1.5, blurred, -0.5, 0)
         candidates.append(self._add_border(enhanced_bgr, border=6))
+
+        _, otsu = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        otsu_inverse = cv2.bitwise_not(otsu)
+        otsu_inverse = cv2.morphologyEx(
+            otsu_inverse,
+            cv2.MORPH_CLOSE,
+            cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2)),
+            iterations=1,
+        )
+        candidates.append(self._add_border(otsu_inverse, border=10))
 
         text_mask = self._build_text_mask(resized)
 

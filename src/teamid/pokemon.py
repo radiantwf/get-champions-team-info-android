@@ -8,7 +8,7 @@ import os
 from src.teamid.type_enum import PokemonTypeType
 from src.ocr.easy import EasyOCR
 from src.ocr.rapidocr import RapidOCR
-from src.ocr.dict.dict import Dict, DictTag
+from src.dict.dict import Dict, DictTag
 
 
 class PokemonFormSource(Enum):
@@ -86,6 +86,7 @@ class Pokemon:
         self._item = ''
         self._moves = []
         self._evs = [0, 0, 0, 0, 0, 0]
+        self._ocr_errors = []
         self._conversion_errors = []
         self._ev_errors = []
         self.ocr_engine = RapidOCR(
@@ -164,6 +165,20 @@ class Pokemon:
             print(f"[OCR Dict] {log}")
             return text
 
+    def _record_empty_ocr_results(self, results, field_names, pokemon_index: int, pokemon_name: str):
+        for result, field_name in zip(results, field_names):
+            text = self._normalize_ocr_text(result.get("text") if isinstance(result, dict) else None)
+            if text:
+                continue
+            log = (
+                f"宝可梦序号 {pokemon_index} ({pokemon_name}) "
+                f"{field_name} OCR 识别为空，score={float((result or {}).get('score') or 0.0):.3f}"
+            )
+            if isinstance(result, dict) and result.get("error"):
+                log += f"，error={result['error']}"
+            self._ocr_errors.append(log)
+            print(f"[OCR Empty] {log}")
+
     def process_moves_image(self, image, i, output_dir="./outputs", save_images: bool = True):
         regions = [
             (89, 33, 256, 48)  # name
@@ -198,6 +213,7 @@ class Pokemon:
             image,
             regions
         )
+        field_names = ("name", "ability", "item", "move1", "move2", "move3", "move4")
 
         name = self._normalize_ocr_text(results[0]['text'])
         ability = self._normalize_ocr_text(results[1]['text'])
@@ -205,6 +221,7 @@ class Pokemon:
         moves = [self._normalize_ocr_text(results[i]['text']) for i in range(3, 7)]
 
         pokemon_log_name = name or f"poke{i}"
+        self._record_empty_ocr_results(results[:7], field_names, i, pokemon_log_name)
         self._name = self._lookup_english_or_original(DictTag.POKEMON, name, i, pokemon_log_name, "name")
         pokemon_log_name = self._name or pokemon_log_name
         self._ability = self._lookup_english_or_original(DictTag.ABILITY, ability, i, pokemon_log_name, "ability")
@@ -374,6 +391,10 @@ class Pokemon:
     @property
     def name(self):
         return self._name
+
+    @property
+    def ocr_errors(self):
+        return list(self._ocr_errors)
 
     @property
     def conversion_errors(self):

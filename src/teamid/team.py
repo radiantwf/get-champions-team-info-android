@@ -11,6 +11,7 @@ class Team:
         self._pokemons = [None, None, None, None, None, None]
         self._output_dir = output_dir
         self._save_images = save_images
+        self._ocr_errors = []
         if self._save_images:
             os.makedirs(self._output_dir, exist_ok=True)
 
@@ -38,6 +39,7 @@ class Team:
                 save_images=self._save_images,
             )
             if self._pokemons[i].name == None or self._pokemons[i].name.strip() == '':
+                self._ocr_errors.extend(self._pokemons[i].ocr_errors)
                 self._pokemons[i] = None
 
     def process_states_image(self, image):
@@ -59,6 +61,14 @@ class Team:
     @property
     def pokemons(self):
         return self._pokemons
+
+    @property
+    def ocr_errors(self):
+        errors = list(self._ocr_errors)
+        for poke in self._pokemons:
+            if poke is not None:
+                errors.extend(poke.ocr_errors)
+        return errors
 
     @property
     def conversion_errors(self):

@@ -116,8 +116,16 @@ def _format_log_section(rental_code: str, team: Team | None, pokepaste_url: str 
         "=" * 60,
         f"租借码: {rental_code}",
         f"Pokepaste URL: {pokepaste_url or ''}",
-        "中英文转换错误日志:",
+        "OCR识别为空日志:",
     ]
+    if team is None:
+        lines.append("未生成队伍，无法读取错误日志")
+    else:
+        lines.extend(team.ocr_errors if team.ocr_errors else ["无"])
+
+    lines.extend([
+        "中英文转换错误日志:",
+    ])
     if team is None:
         lines.append("未生成队伍，无法读取错误日志")
     else:
