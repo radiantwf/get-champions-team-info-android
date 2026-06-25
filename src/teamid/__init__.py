@@ -10,6 +10,8 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 
+import cv2
+import numpy as np
 import uiautomator2 as u2
 
 from src.teamid.team import Team
@@ -272,39 +274,56 @@ def _require_device_unlocked(d):
 
 
 def _start_device_once():
-    d = u2.connect()
+    d = u2.connect('127.0.0.1:5555')
     _require_device_unlocked(d)
     d.app_start("jp.pokemon.pokemonchampions")
     time.sleep(2)
     return d
 
 
+def _capture_raw_screenshot(d):
+    result = subprocess.run(
+        ["adb", "-s", d.serial, "exec-out", "screencap", "-p"],
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            "原始截图失败: adb exec-out screencap -p 返回错误\n"
+            f"stderr:\n{result.stderr.decode('utf-8', errors='replace')}"
+        )
+
+    image = cv2.imdecode(np.frombuffer(result.stdout, dtype=np.uint8), cv2.IMREAD_COLOR)
+    if image is None:
+        raise RuntimeError("原始截图失败: 无法解码 adb screencap 输出")
+    return image
+
+
 def _capture_rental_images(d, rental_code: str):
-    d.click(2380, 60)
+    d.click(1815, 80)
     time.sleep(0.8)
-    d.click(1053, 622)
+    d.click(640, 570)
     time.sleep(3)
-    d.click(1678, 652)
+    d.click(1240, 570)
     time.sleep(0.8)
-    d.click(1782, 528)
+    d.click(1430, 470)
     time.sleep(2)
-    d.click(494, 632)
+    d.click(350, 580)
     time.sleep(0.5)
-    d.click(565, 673)
+    d.click(430, 600)
     time.sleep(0.5)
-    d.click(1530, 1043)
+    d.click(1150, 900)
     time.sleep(0.8)
-    d.click(1318, 575)
+    d.click(960, 520)
     time.sleep(0.8)
     d.xpath('//android.widget.EditText').set_text(rental_code)
     time.sleep(0.5)
     d.xpath('//android.widget.Button').click()
-    d.click(1572, 824)
+    d.click(1190, 730)
     time.sleep(2)
-    image1 = d.screenshot(format='opencv')
-    d.click(1520, 240)
+    image1 = _capture_raw_screenshot(d)
+    d.click(1110, 220)
     time.sleep(1)
-    image2 = d.screenshot(format='opencv')
+    image2 = _capture_raw_screenshot(d)
     return image1, image2
 
 
@@ -412,7 +431,6 @@ def process_batch(
             )
             print(f"已提交后台处理: {rental_code}")
     finally:
-        d.screen_off()
         with ordered_condition:
             ordered_state["capture_done"] = True
             ordered_condition.notify_all()

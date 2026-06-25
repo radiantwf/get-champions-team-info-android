@@ -181,17 +181,17 @@ class Pokemon:
 
     def process_moves_image(self, image, i, output_dir="./outputs", save_images: bool = True):
         regions = [
-            (89, 33, 256, 48)  # name
-            , (89, 94, 256, 34)  # ability
-            , (89, 148, 256, 34)  # item
-            , (556, 44, 200, 34)  # move1
-            , (556, 97, 200, 34)  # move2
-            , (556, 145, 200, 34)  # move3
-            , (556, 196, 200, 34)  # move4
-            , (353, 42, 30, 30)  # gender
-            , (392, 40, 35, 35)  # type1
-            , (440, 40, 35, 35)  # type2
-            , (9, 2, 80, 80)  # pokemon
+            (77, 32, 230, 40)  # name
+            , (87, 82, 226, 32)  # ability
+            , (87, 130, 226, 38)  # item
+            , (497, 39, 175, 30)  # move1
+            , (497, 86, 175, 30)  # move2
+            , (497, 129, 175, 30)  # move3
+            , (497, 174, 175, 30)  # move4
+            , (314, 36, 28, 29)  # gender
+            , (350, 35, 30, 30)  # type1
+            , (392, 35, 30, 30)  # type2
+            , (7, 2, 72, 72)  # pokemon
         ]
         poke_output_dir = Path(output_dir) / f"poke{i}"
         if save_images:
@@ -290,12 +290,12 @@ class Pokemon:
 
     def process_states_image(self, image, i, output_dir="./outputs", save_images: bool = True):
         regions = [
-            (358, 93, 36, 28),  # evs hp
-            (358, 144, 36, 28),  # atk
-            (358, 195, 36, 28),  # def
-            (753, 93, 36, 28),  # spa
-            (753, 144, 36, 28),  # spd
-            (753, 195, 36, 28),  # spe
+            (318, 83, 32, 28),  # evs hp
+            (318, 127, 32, 29),  # atk
+            (318, 172, 32, 29),  # def
+            (669, 83, 32, 28),  # spa
+            (669, 127, 32, 29),  # spd
+            (669, 172, 32, 29),  # spe
         ]
         poke_output_dir = Path(output_dir) / f"poke{i}"
         if save_images:

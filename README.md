@@ -1,14 +1,14 @@
 # Pokemon Champions 租借队识别
 
-本项目用于通过 Android 手机截图识别 Pokemon Champions 租借队伍，生成 Pokepaste 链接，并输出处理日志。
+本项目用于通过 Android 模拟器截图识别 Pokemon Champions 租借队伍，生成 Pokepaste 链接，并输出处理日志。
 
 ## 测试环境
 
-- 测试手机：一加 13T
-- 当前连接手机分辨率：
+- 测试设备：Android 模拟器
+- 当前连接模拟器分辨率：
 
 ```text
-Physical size: 1216x2640
+Physical size: 1920x1080
 ```
 
 分辨率获取命令：
@@ -51,11 +51,10 @@ venv/bin/python main.py
 ## 批量处理说明
 
 - `process_batch` 支持一次传入多个租借码。
-- 手机连接和 `app_start` 只执行一次。
-- 手机操作线程会依次读取所有租借码截图。
+- 模拟器连接和 `app_start` 只执行一次。
+- 模拟器操作线程会依次读取所有租借码截图。
 - OCR、努力值识别、Pokepaste 上传、日志写入会异步执行。
 - 异步处理最多同时运行 3 个后台任务。
-- 手机读取完所有租借码后会执行 `screen_off()`。
 - 多个租借码批量处理时，只生成一个批量日志文件。
 
 日志文件位置：
@@ -105,11 +104,11 @@ outputs/poke{i}/stat_atk_modify.png
 
 ## 坐标与模板适配
 
-当前坐标基于测试设备一加 13T，分辨率 `1216x2640`。如果更换手机、模拟器、系统缩放、游戏显示比例或截图分辨率，需要重新获取坐标和模板文件。
+当前坐标基于 Android 模拟器，分辨率 `1920x1080`。如果更换设备、模拟器分辨率、系统缩放、游戏显示比例或截图分辨率，需要重新获取坐标和模板文件。
 
 需要检查或重新采集的坐标位置：
 
-- 手机点击流程：[src/teamid/__init__.py](src/teamid/__init__.py)
+- 模拟器点击流程：[src/teamid/__init__.py](src/teamid/__init__.py)
   - `_capture_rental_images`
   - 包括进入租借队页面、输入租借码、确认、切换 basic/stats 页面等点击坐标。
 - 队伍六只宝可梦的大区域裁剪：[src/teamid/team.py](src/teamid/team.py)
@@ -140,7 +139,7 @@ resources/imgs/teamid/pokemon/<PokemonName>/*.png
 
 ## 坐标重新采集建议
 
-1. 先确认手机分辨率：
+1. 先确认模拟器分辨率：
 
 ```bash
 adb shell wm size

@@ -2,8 +2,8 @@ from src.teamid.pokemon import Pokemon
 import cv2
 import os
 
-REGION_WIDTH = 834
-REGION_HEIGHT = 240
+REGION_WIDTH = 743
+REGION_HEIGHT = 213
 
 class Team:
     def __init__(self, offsets_y: int, output_dir: str = "./outputs", save_images: bool = True):
@@ -16,7 +16,7 @@ class Team:
             os.makedirs(self._output_dir, exist_ok=True)
 
     def _split_pokemon(self, image):
-        pokes = [(453, 267+self._offsets_y), (1352, 267+self._offsets_y), (453, 512+self._offsets_y), (1352, 512+self._offsets_y), (453, 757+self._offsets_y), (1352, 757+self._offsets_y)
+        pokes = [(188, 237+self._offsets_y), (989, 237+self._offsets_y), (188, 455+self._offsets_y), (989, 455+self._offsets_y), (188, 673+self._offsets_y), (989, 673+self._offsets_y)
                  ]
         poke_images = []
         for poke in pokes:
