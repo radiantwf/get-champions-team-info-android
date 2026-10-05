@@ -58,6 +58,36 @@ class Dict:
         return cls._lookup_english_text_by_tag(tag, eng_key)
 
     @classmethod
+    def _dict_terms(cls, tag: DictTag) -> list[str]:
+        cls._load_dicts()
+        reverse_dict = getattr(cls, f"_zh_to_tag_{tag.value}", {}) or {}
+        return list(reverse_dict.keys())
+
+    @classmethod
+    def zh_terms(cls, tag: DictTag | None) -> list[str]:
+        if not tag:
+            return []
+        return cls._dict_terms(tag)
+
+    @classmethod
+    def is_exact_zh_text(cls, tag: DictTag | None, text: str) -> bool:
+        if not tag:
+            return False
+        return cls._normalize_lookup_text(text) in cls._dict_terms(tag)
+
+    @classmethod
+    def correct_zh_text(cls, tag: DictTag | None, text: str) -> str:
+        normalized = cls._normalize_lookup_text(text)
+        if not tag or not normalized:
+            return text
+        terms = cls._dict_terms(tag)
+        if normalized in terms:
+            return normalized
+        if cls._is_ambiguous_form_suffix_prefix(normalized, terms):
+            return text
+        return normalized
+
+    @classmethod
     def _load_dicts(cls):
         if cls._zh_to_tag_pokemon is not None:
             return
@@ -116,14 +146,49 @@ class Dict:
                 return candidate
         return Path(__file__).resolve().parent.parent / "resources" / "locales"
 
+    @classmethod
+    def _is_ambiguous_form_suffix_prefix(cls, normalized: str, terms: list[str]) -> bool:
+        """
+        避免把“雷丘进化石”这类多形态共同前缀默认纠正成字典里的第一个版本。
+        只有 OCR 候选明确带出 X/Y/Z 等形态后缀时，后续精确匹配才会选中对应道具。
+        """
+        form_suffixes = {"X", "Y", "Z"}
+        if not normalized or normalized[-1].upper() in form_suffixes:
+            return False
+
+        suffixes = {
+            term[len(normalized):]
+            for term in terms
+            if (
+                term.startswith(normalized)
+                and len(term) == len(normalized) + 1
+                and term[len(normalized):].upper() in form_suffixes
+            )
+        }
+        return len({suffix.upper() for suffix in suffixes}) >= 2
+
+    @classmethod
+    def is_ambiguous_form_suffix_prefix(cls, tag: DictTag | None, text: str) -> bool:
+        if not tag:
+            return False
+        normalized = cls._normalize_lookup_text(text)
+        return cls._is_ambiguous_form_suffix_prefix(normalized, cls._dict_terms(tag))
+
+    @classmethod
+    def normalize_zh_text(cls, text: str | None) -> str:
+        return cls._normalize_lookup_text(text)
+
     @staticmethod
     def _normalize_lookup_text(text: str | None) -> str:
         if text is None:
             return ""
-        return (
+        normalized = (
             str(text)
-            .translate(str.maketrans("０１２３４５６７８９", "0123456789"))
+            .translate(str.maketrans("０１２３４５６７８９ＸＹＺｘｙｚ", "0123456789XYZxyz"))
             .replace(" ", "")
             .replace("\u3000", "")
             .strip()
         )
+        if normalized.endswith(("x", "y", "z")):
+            normalized = normalized[:-1] + normalized[-1].upper()
+        return normalized

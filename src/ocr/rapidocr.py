@@ -139,37 +139,15 @@ class RapidOCR:
             return DictTag.MOVE
         return None
 
-    @staticmethod
-    def _normalize_lookup_text(text):
-        return (
-            str(text or "")
-            .translate(str.maketrans("０１２３４５６７８９", "0123456789"))
-            .replace(" ", "")
-            .replace("\u3000", "")
-            .strip()
-        )
-
-    @staticmethod
-    def _dict_terms(tag):
-        Dict._load_dicts()
-        reverse_dict = getattr(Dict, f"_zh_to_tag_{tag.value}", {}) or {}
-        return list(reverse_dict.keys())
-
-    @classmethod
-    def _is_exact_dict_text(cls, text, tag):
-        if not tag:
-            return False
-        return cls._normalize_lookup_text(text) in cls._dict_terms(tag)
-
     @classmethod
     def _correct_text_by_dict(cls, text, field_name):
         tag = cls._field_to_dict_tag(field_name)
-        normalized = cls._normalize_lookup_text(text)
+        normalized = Dict.correct_zh_text(tag, text)
         if not tag or not normalized:
             return text
 
-        terms = cls._dict_terms(tag)
-        if normalized in terms:
+        terms = Dict.zh_terms(tag)
+        if normalized in terms or Dict.is_ambiguous_form_suffix_prefix(tag, normalized):
             return normalized
 
         best_term = None
@@ -187,7 +165,7 @@ class RapidOCR:
                 best_term = term
 
         if best_term is None:
-            return text
+            return normalized
 
         # 短词经常因背景干扰漏掉一个字，例如“仆刀”识别成“刀”。
         if len(normalized) <= 2:
@@ -199,14 +177,14 @@ class RapidOCR:
 
         if best_score >= threshold:
             return best_term
-        return text
+        return normalized
 
     @classmethod
     def _should_prefer_text(cls, text, score, best, field_name=None):
         tag = cls._field_to_dict_tag(field_name)
-        text_in_dict = cls._is_exact_dict_text(text, tag)
+        text_in_dict = Dict.is_exact_zh_text(tag, text)
         best_text = str(best["text"] or "")
-        best_in_dict = cls._is_exact_dict_text(best_text, tag)
+        best_in_dict = Dict.is_exact_zh_text(tag, best_text)
         best_score = float(best["score"] or 0.0)
 
         if text_in_dict and not best_in_dict:
@@ -222,8 +200,8 @@ class RapidOCR:
         if tag != DictTag.MOVE or not best_text:
             return False
 
-        normalized = cls._normalize_lookup_text(text)
-        normalized_best = cls._normalize_lookup_text(best_text)
+        normalized = Dict.normalize_zh_text(text)
+        normalized_best = Dict.normalize_zh_text(best_text)
         if (
             len(normalized) > len(normalized_best)
             and normalized.startswith(normalized_best)
@@ -344,7 +322,7 @@ class RapidOCR:
                     continue
                 raw_text = str(item[1])
                 text = RapidOCR._normalize_text(fix_error_text(raw_text))
-                text = RapidOCR._correct_text_by_dict(text, field_name)
+                text = cls._correct_text_by_dict(text, field_name)
                 if not text:
                     continue
                 try:

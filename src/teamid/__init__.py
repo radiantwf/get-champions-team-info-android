@@ -107,9 +107,9 @@ def _new_log_path(rental_codes):
     output_dir.mkdir(exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     if len(rental_codes) == 1:
-        filename = f"teamid_{_safe_code_for_path(rental_codes[0])}_{timestamp}.log"
+        filename = f"teamid_{timestamp}_{_safe_code_for_path(rental_codes[0])}.log"
     else:
-        filename = f"teamid_batch_{timestamp}.log"
+        filename = f"teamid_{timestamp}_batch.log"
     return output_dir / filename
 
 
@@ -117,7 +117,7 @@ def _format_log_section(rental_code: str, team: Team | None, pokepaste_url: str 
     lines = [
         "=" * 60,
         f"租借码: {rental_code}",
-        f"Pokepaste URL: {pokepaste_url or ''}",
+        f"Pokepaste URL: \n{pokepaste_url or ''}",
         "OCR识别为空日志:",
     ]
     if team is None:
@@ -237,6 +237,15 @@ def _device_shell_output(d, cmd):
     return result.output or ""
 
 
+def _input_rental_code_without_clipboard(d, rental_code: str):
+    if not re.fullmatch(r"[A-Za-z0-9]+", rental_code):
+        raise ValueError(f"租借码包含不支持的字符: {rental_code!r}")
+
+    # uiautomator2.set_text 在部分设备上会通过剪切板粘贴。
+    # Android 原生 input text 直接注入按键事件，不读写剪切板。
+    _device_shell_output(d, ["input", "text", rental_code])
+
+
 def _is_device_unlocked(d):
     trust_output = _device_shell_output(d, ["dumpsys", "trust"])
     trust_match = re.search(r"\bdeviceLocked\s*=\s*(true|false)\b", trust_output, re.IGNORECASE)
@@ -302,24 +311,24 @@ def _capture_rental_images(d, rental_code: str):
     d.click(1815, 80)
     time.sleep(0.8)
     d.click(640, 570)
-    time.sleep(3)
+    time.sleep(5)
     d.click(1240, 570)
-    time.sleep(0.8)
+    time.sleep(1.4)
     d.click(1430, 470)
-    time.sleep(2)
+    time.sleep(3)
     d.click(350, 580)
-    time.sleep(0.5)
+    time.sleep(1.2)
     d.click(430, 600)
-    time.sleep(0.5)
+    time.sleep(1.2)
     d.click(1150, 900)
-    time.sleep(0.8)
+    time.sleep(1.2)
     d.click(960, 520)
-    time.sleep(0.8)
-    d.xpath('//android.widget.EditText').set_text(rental_code)
+    time.sleep(1.2)
+    _input_rental_code_without_clipboard(d, rental_code)
     time.sleep(0.5)
     d.xpath('//android.widget.Button').click()
     d.click(1190, 730)
-    time.sleep(2)
+    time.sleep(5)
     image1 = _capture_raw_screenshot(d)
     d.click(1110, 220)
     time.sleep(1)

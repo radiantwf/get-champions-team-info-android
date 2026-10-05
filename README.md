@@ -60,8 +60,8 @@ venv/bin/python main.py
 日志文件位置：
 
 ```text
-outputs/teamid_<租借码>_<时间>.log
-outputs/teamid_batch_<时间>.log
+outputs/<时间>_teamid_<租借码>.log
+outputs/<时间>_teamid_batch.log
 ```
 
 日志包含：

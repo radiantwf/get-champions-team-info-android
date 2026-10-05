@@ -123,19 +123,30 @@ _fix_text_dict = {"花叶带": "花叶蒂-永恒之花",
                     "嬉闲": "嬉闹",
                     "哚脚": "跺脚",
                     "躁脚": "跺脚",
+                    "躁脚.": "跺脚",
                     "电光东": "电光束",
                     "电光柬": "电光束",
                     "电光東": "电光束",
                     "皖A·AE": "电光束",
                     "国攻": "围攻",
+                    "罗崩": "岩崩",
+                    "跨蹦": "蹒跚",
+                    "蕉香果": "千香果",
+                    "木柏": "木槌",
+                    "罗斧": "岩斧",
+                    "弦蝶螈": "颤弦蝾螈",
+                    "弦蝾螈": "颤弦蝾螈",
                     "": "",
                     }
 
 def fix_error_text(text: str) -> str:
-    if text.endswith("·"):
-        text = text[:-1]
-    if text in _fix_text_dict:
-        text = _fix_text_dict[text]
+    # OCR 结果可能夹带普通空格、全角空格或换行；中文字段统一移除后再纠错。
+    fix_text = "".join(str(text or "").split())
+    if fix_text.endswith("·"):
+        fix_text = fix_text[:-1]
     for key in _fix_replace_text:
-        text = text.replace(key, _fix_replace_text[key])
+        fix_text = fix_text.replace(key, _fix_replace_text[key])
+    if fix_text in _fix_text_dict:
+        fix_text = _fix_text_dict[fix_text]
+        return fix_text
     return text
